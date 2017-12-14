@@ -1,0 +1,4 @@
+# TODO(Kevin): Use an input pointcloud
+---
+# The pose of the most center centroid that was found
+geometry_msgs/Pose centroid

@@ -1,0 +1,3 @@
+<launch>
+  <node name="centroid_detector" pkg="centroid_detector" type="centroid_detector" respawn="false" output="screen"/>
+</launch>
