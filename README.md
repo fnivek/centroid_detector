@@ -34,10 +34,12 @@ TODO
 
 To build from source, clone the latest version from this repository into your catkin workspace and compile the package using
 
+```
   cd catkin_workspace/src
-  git clone TODO
+  git clone git@progress-gitlab.eecs.umich.edu:4progress/centroid_detector.git
   cd ../
   catkin_make
+```
 
 
 ### Unit Tests
@@ -84,9 +86,39 @@ None
 
 #### Parameters
 
-None
+* **`~/min_pc_x`** (float, default 0)
+
+    The minimum x for the crop box
+
+* **`~/max_pc_x`** (float, default 1)
+
+    The maximum x for the crop box
+
+* **`~/min_pc_y`** (float, default -1)
+
+    The minimum y for the crop box
+
+* **`~/max_pc_y`** (float, default 1)
+
+    The maximum y for the crop box
+
+* **`~/min_pc_z`** (float, default 0.82)
+ 
+    The minimum z for the crop box
+
+* **`~/max_pc_z`** (float, default 1.016)
+
+    The maximum z for the crop box
+
+* **`~/nearest_neighbor_radius`** (float, default 0.03)
+
+    The radius for nearest neighbor search in the euclidean clustering
+
+* **`~/min_centroid_seperation`** (float, default 0.05)
+
+    The clossest two centroid y values can be before they are considered the same cluster
 
 
 ## Bugs & Feature Requests
 
-Please report bugs and request features using the [Issue Tracker](https://progress-gitlab.eecs.umich.edu/4progress/state_manager/issues).
+Please report bugs and request features using the [Issue Tracker](https://progress-gitlab.eecs.umich.edu/4progress/centroid_detector/issues).
