@@ -31,7 +31,8 @@ class BinderDetector
   private:
     // Private funcs
     void PCCallback(const sensor_msgs::PointCloud2::ConstPtr& msg);
-    bool ServiceCB(centroid_detector_msgs::DetectCentroid::Request& req, centroid_detector_msgs::DetectCentroid::Response& res);
+    bool ServiceCB(centroid_detector_msgs::DetectCentroid::Request& req,
+                   centroid_detector_msgs::DetectCentroid::Response& res);
     bool DetectCentroid(Eigen::Vector4f* result);
 
   private:

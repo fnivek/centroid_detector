@@ -38,7 +38,8 @@ BinderDetector::~BinderDetector()
         delete server_;
 }
 
-bool BinderDetector::ServiceCB(centroid_detector_msgs::DetectCentroid::Request& req, centroid_detector_msgs::DetectCentroid::Response& res)
+bool BinderDetector::ServiceCB(centroid_detector_msgs::DetectCentroid::Request& req,
+                               centroid_detector_msgs::DetectCentroid::Response& res)
 {
     // Try ten times to find a binder
     Eigen::Vector4f centroid;
