@@ -94,16 +94,16 @@ None
 
     The maximum x for the crop box
 
-* **`~/min_pc_y`** (float, default -1)
+* **`~/min_pc_y`** (float, default -0.3)
 
     The minimum y for the crop box
 
-* **`~/max_pc_y`** (float, default 1)
+* **`~/max_pc_y`** (float, default 0.5)
 
     The maximum y for the crop box
 
-* **`~/min_pc_z`** (float, default 0.82)
- 
+* **`~/min_pc_z`** (float, default 0.85)
+
     The minimum z for the crop box
 
 * **`~/max_pc_z`** (float, default 1.016)

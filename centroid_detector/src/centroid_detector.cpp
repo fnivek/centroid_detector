@@ -9,9 +9,9 @@ BinderDetector::BinderDetector() : loop_rate_(NULL), tf_listener_(NULL), pc_sub_
     ros::NodeHandle private_nh("~");
     private_nh.param<float>("min_pc_x", min_pc_x_, 0);
     private_nh.param<float>("max_pc_x", max_pc_x_, 1);
-    private_nh.param<float>("min_pc_y", min_pc_y_, -1);
-    private_nh.param<float>("max_pc_y", max_pc_y_, 1);
-    private_nh.param<float>("min_pc_z", min_pc_z_, 0.82);
+    private_nh.param<float>("min_pc_y", min_pc_y_, -0.3);
+    private_nh.param<float>("max_pc_y", max_pc_y_, 0.5);
+    private_nh.param<float>("min_pc_z", min_pc_z_, 0.85);
     private_nh.param<float>("max_pc_z", max_pc_z_, 1.016);
     private_nh.param<float>("nearest_neighbor_radius", nearest_neighbor_radius_, 0.03);
     private_nh.param<float>("min_centroid_seperation", min_centroid_seperation_, 0.05);
