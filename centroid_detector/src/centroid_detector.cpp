@@ -136,17 +136,17 @@ bool BinderDetector::DetectCentroid(Eigen::Vector4f* result)
     // Get centroids
     std::vector<Eigen::Vector4f> centroids;
     int i = 0;
-    for (auto&& indicies : cluster_indicies)
+    for (std::vector<pcl::PointIndices>::iterator it = cluster_indicies.begin(); it < cluster_indicies.end(); ++it)
     {
         Eigen::Vector4f centroid;
-        pcl::compute3DCentroid(*croped_pc, indicies, centroid);
+        pcl::compute3DCentroid(*croped_pc, *it, centroid);
 
         // Combine centroids who are likely from the same binder
         //  This is done using the centroid y value
         //  No two binders should occupy the same y space
         //  If they are then keep the centroid with the smalles x value
         bool add_centroid = true;
-        for (auto it = centroids.begin(); it < centroids.end(); ++it)
+        for (std::vector<Eigen::Vector4f>::iterator it = centroids.begin(); it < centroids.end(); ++it)
         {
             // Check distance in y
             if (std::fabs((*it)[1] - centroid[1]) < min_centroid_seperation_)
@@ -175,9 +175,9 @@ bool BinderDetector::DetectCentroid(Eigen::Vector4f* result)
     }
 
     ROS_INFO("--------------------------------------");
-    for (auto&& centroid : centroids)
+    for (std::vector<Eigen::Vector4f>::iterator it = centroids.begin(); it < centroids.end(); ++it)
     {
-        ROS_INFO("Binder centroid: [%f,\t%f,\t%f]", centroid[0], centroid[1], centroid[2]);
+        ROS_INFO("Binder centroid: [%f,\t%f,\t%f]", (*it)[0], (*it)[1], (*it)[2]);
     }
 
     // Return fail if none were found
