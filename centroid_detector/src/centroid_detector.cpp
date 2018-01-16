@@ -1,6 +1,11 @@
 #include "centroid_detector/centroid_detector.h"
 
-BinderDetector::BinderDetector() : loop_rate_(NULL), tf_listener_(NULL), pc_sub_(NULL), new_pc_(false), server_(NULL)
+BinderDetector::BinderDetector()
+  : loop_rate_(NULL)
+  , tf_listener_(NULL)
+  , pc_sub_(NULL)
+  , new_pc_(false)
+  , as_(nh_, "/centroid_detector", boost::bind(&BinderDetector::DetectCentroidCB, this, _1), false)
 {
     // Setup loop rate
     loop_rate_ = new ros::Rate(kLoopRate);
@@ -20,10 +25,8 @@ BinderDetector::BinderDetector() : loop_rate_(NULL), tf_listener_(NULL), pc_sub_
     tf_listener_ = new tf::TransformListener();
 
     // Setup service and subscribers
-    ros::NodeHandle nh;
     pc_sub_ = new ros::Subscriber();
-    server_ = new ros::ServiceServer;
-    *server_ = nh.advertiseService("/centroid_detector", &BinderDetector::ServiceCB, this);
+    as_.start();
 }
 
 BinderDetector::~BinderDetector()
@@ -34,27 +37,28 @@ BinderDetector::~BinderDetector()
         delete tf_listener_;
     if (pc_sub_)
         delete pc_sub_;
-    if (server_)
-        delete server_;
 }
 
-bool BinderDetector::ServiceCB(centroid_detector_msgs::DetectCentroid::Request& req,
-                               centroid_detector_msgs::DetectCentroid::Response& res)
+void BinderDetector::DetectCentroidCB(const centroid_detector_msgs::DetectCentroidGoal::ConstPtr& goal)
 {
-    // Try ten times to find a binder
+    ROS_INFO("Centroid detector activated");
+    // Try to find a binder
     Eigen::Vector4f centroid;
-    bool found = false;
-    for (int i = 0; i < 1000; ++i)
+    if (!DetectCentroid(&centroid))
     {
-        if (DetectCentroid(&centroid))
-        {
-            found = true;
-            break;
-        }
-        ROS_WARN("Failed to find a binder %d times", i + 1);
+        ROS_WARN("Failed to find a centroid");
+        return;
+    }
+
+    // Make sure not preempted
+    if (as_.isPreemptRequested())
+    {
+        as_.setPreempted();
+        return;
     }
 
     // Construct a pose
+    centroid_detector_msgs::DetectCentroidResult res;
     res.centroid.position.x = centroid[0];
     res.centroid.position.y = centroid[1];
     res.centroid.position.z = centroid[2];
@@ -63,11 +67,13 @@ bool BinderDetector::ServiceCB(centroid_detector_msgs::DetectCentroid::Request& 
     res.centroid.orientation.z = 0;
     res.centroid.orientation.w = 1;
 
-    return found;
+    // Complete
+    as_.setSucceeded(res);
 }
 
 void BinderDetector::PCCallback(const sensor_msgs::PointCloud2::ConstPtr& msg)
 {
+    ROS_INFO("Got a PC");
     lattest_pc_ = *msg;
     new_pc_ = true;
 }
@@ -76,11 +82,13 @@ bool BinderDetector::DetectCentroid(Eigen::Vector4f* result)
 {
     // Wait for a new point cloud
     //  Subscribe to pc topic
-    ros::NodeHandle nh;
-    *pc_sub_ = nh.subscribe("/head_camera/depth/points", 1, &BinderDetector::PCCallback, this);
+    *pc_sub_ = nh_.subscribe("/head_camera/depth_registered/points", 1, &BinderDetector::PCCallback, this);
     new_pc_ = false;
-    while (ros::ok())
+    while (ros::ok() && !as_.isPreemptRequested())
     {
+        feedback_.status.data = "Waiting for point cloud";
+        as_.publishFeedback(feedback_);
+        ROS_INFO("%s", feedback_.status.data.c_str());
         if (new_pc_)
             break;
         ros::spinOnce();
@@ -89,16 +97,34 @@ bool BinderDetector::DetectCentroid(Eigen::Vector4f* result)
     // Unsubscribe from pc topic
     pc_sub_->shutdown();
 
+    // Make sure not preempted
+    if (as_.isPreemptRequested())
+    {
+        as_.setPreempted();
+        return false;
+    }
+
     // Transform pc to base_link
     sensor_msgs::PointCloud2 tfed_pc;
     try
     {
+        feedback_.status.data = "Waiting for tf";
+        as_.publishFeedback(feedback_);
+        ROS_INFO("%s", feedback_.status.data.c_str());
         tf_listener_->waitForTransform("/base_link", lattest_pc_.header.frame_id, ros::Time(0), ros::Duration(10.0));
         pcl_ros::transformPointCloud("/base_link", lattest_pc_, tfed_pc, *tf_listener_);
     }
     catch (tf::TransformException ex)
     {
         ROS_ERROR("Failed to transform point cloud to /base_link because: %s", ex.what());
+        as_.setAborted();
+        return false;
+    }
+
+    // Make sure not preempted
+    if (as_.isPreemptRequested())
+    {
+        as_.setPreempted();
         return false;
     }
 
@@ -109,6 +135,9 @@ bool BinderDetector::DetectCentroid(Eigen::Vector4f* result)
     pcl::fromPCLPointCloud2(*temp, *pcl_tfed_pc);
 
     // Crop the pc
+    feedback_.status.data = "Cropping Point cloud";
+    as_.publishFeedback(feedback_);
+    ROS_INFO("%s", feedback_.status.data.c_str());
     pcl::CropBox<pcl::PointXYZ> crop_box(true);
     Eigen::Vector4f min_pt(min_pc_x_, min_pc_y_, min_pc_z_, 1);
     Eigen::Vector4f max_pt(max_pc_x_, max_pc_y_, max_pc_z_, 1);
@@ -120,11 +149,24 @@ bool BinderDetector::DetectCentroid(Eigen::Vector4f* result)
     pcl::PointCloud<pcl::PointXYZ>::Ptr croped_pc(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::copyPointCloud(*pcl_tfed_pc, indices, *croped_pc);
 
+    // Make sure not preempted
+    if (as_.isPreemptRequested())
+    {
+        as_.setPreempted();
+        return false;
+    }
+
     // Construct kdtree
+    feedback_.status.data = "Constructing kdtree";
+    as_.publishFeedback(feedback_);
+    ROS_INFO("%s", feedback_.status.data.c_str());
     pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>);
     tree->setInputCloud(croped_pc);
 
     // Perform euclidian segmentation
+    feedback_.status.data = "Performing euclidian segmentation";
+    as_.publishFeedback(feedback_);
+    ROS_INFO("%s", feedback_.status.data.c_str());
     std::vector<pcl::PointIndices> cluster_indicies;
     pcl::EuclideanClusterExtraction<pcl::PointXYZ> segmenter;
     segmenter.setClusterTolerance(nearest_neighbor_radius_);
@@ -133,11 +175,28 @@ bool BinderDetector::DetectCentroid(Eigen::Vector4f* result)
     segmenter.setInputCloud(croped_pc);
     segmenter.extract(cluster_indicies);
 
+    // Make sure not preempted
+    if (as_.isPreemptRequested())
+    {
+        as_.setPreempted();
+        return false;
+    }
+
     // Get centroids
     std::vector<Eigen::Vector4f> centroids;
     int i = 0;
     for (std::vector<pcl::PointIndices>::iterator it = cluster_indicies.begin(); it < cluster_indicies.end(); ++it)
     {
+        // Make sure not preempted
+        if (as_.isPreemptRequested())
+        {
+            as_.setPreempted();
+            return false;
+        }
+
+        feedback_.status.data = "Calculating centroid";
+        as_.publishFeedback(feedback_);
+        ROS_INFO("%s", feedback_.status.data.c_str());
         Eigen::Vector4f centroid;
         pcl::compute3DCentroid(*croped_pc, *it, centroid);
 
@@ -174,6 +233,13 @@ bool BinderDetector::DetectCentroid(Eigen::Vector4f* result)
         }
     }
 
+    // Make sure not preempted
+    if (as_.isPreemptRequested())
+    {
+        as_.setPreempted();
+        return false;
+    }
+
     ROS_INFO("--------------------------------------");
     for (std::vector<Eigen::Vector4f>::iterator it = centroids.begin(); it < centroids.end(); ++it)
     {
@@ -184,10 +250,14 @@ bool BinderDetector::DetectCentroid(Eigen::Vector4f* result)
     if (!centroids.size())
     {
         ROS_WARN("No binder centroids found");
+        as_.setAborted();
         return false;
     }
 
     // Find the center most binder (y value clossest to 0)
+    feedback_.status.data = "Getting center centroid";
+    as_.publishFeedback(feedback_);
+    ROS_INFO("%s", feedback_.status.data.c_str());
     (*result) = centroids[0];
     for (int i = 1; i < centroids.size(); ++i)
     {

@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "ros/ros.h"
+#include "actionlib/server/simple_action_server.h"
 #include "tf/tf.h"
 #include "pcl_conversions/pcl_conversions.h"
 #include "pcl/common/io.h"
@@ -17,7 +18,7 @@
 #include "pcl/kdtree/kdtree.h"
 #include "pcl/segmentation/extract_clusters.h"
 #include "sensor_msgs/PointCloud2.h"
-#include "centroid_detector_msgs/DetectCentroid.h"
+#include "centroid_detector_msgs/DetectCentroidAction.h"
 
 class BinderDetector
 {
@@ -31,8 +32,7 @@ class BinderDetector
   private:
     // Private funcs
     void PCCallback(const sensor_msgs::PointCloud2::ConstPtr& msg);
-    bool ServiceCB(centroid_detector_msgs::DetectCentroid::Request& req,
-                   centroid_detector_msgs::DetectCentroid::Response& res);
+    void DetectCentroidCB(const centroid_detector_msgs::DetectCentroidGoal::ConstPtr& goal);
     bool DetectCentroid(Eigen::Vector4f* result);
 
   private:
@@ -59,12 +59,20 @@ class BinderDetector
     // Subscribers
     ros::Subscriber* pc_sub_;
 
-    // Service server
-    ros::ServiceServer* server_;
+    // Node handle
+    ros::NodeHandle nh_;
+
+    // Simple action server
+    //  ros::NodeHandle must appear first in the .h file see
+    //  http://wiki.ros.org/actionlib_tutorials/Tutorials/SimpleActionServer%28ExecuteCallbackMethod%29
+    actionlib::SimpleActionServer<centroid_detector_msgs::DetectCentroidAction> as_;
 
     // Track the lattest pc
     sensor_msgs::PointCloud2 lattest_pc_;
     bool new_pc_;
+
+    // Feedback
+    centroid_detector_msgs::DetectCentroidFeedback feedback_;
 
   private:
     // Private constants

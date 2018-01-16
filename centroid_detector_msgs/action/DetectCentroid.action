@@ -1,4 +1,9 @@
+# Request
 # TODO(Kevin): Use an input pointcloud
 ---
+# Result
 # The pose of the most center centroid that was found
 geometry_msgs/Pose centroid
+---
+# Feedback
+std_msgs/String status
