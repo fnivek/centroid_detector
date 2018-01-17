@@ -41,12 +41,34 @@ BinderDetector::~BinderDetector()
 
 void BinderDetector::DetectCentroidCB(const centroid_detector_msgs::DetectCentroidGoal::ConstPtr& goal)
 {
+    ros::NodeHandle private_nh("~");
+    private_nh.param<float>("min_pc_x", min_pc_x_, goal->min_x);
+    private_nh.param<float>("max_pc_x", max_pc_x_, goal->max_x);
+    private_nh.param<float>("min_pc_y", min_pc_y_, goal->min_y);
+    private_nh.param<float>("max_pc_y", max_pc_y_, goal->max_y);
+    private_nh.param<float>("min_pc_z", min_pc_z_, goal->min_z);
+    private_nh.param<float>("max_pc_z", max_pc_z_, goal->max_z);
+
     ROS_INFO("Centroid detector activated");
     // Try to find a binder
     Eigen::Vector4f centroid;
     if (!DetectCentroid(&centroid))
     {
         ROS_WARN("Failed to find a centroid");
+        centroid_detector_msgs::DetectCentroidResult res;
+
+
+        res.centroid.position.x = 0;
+        res.centroid.position.y = 0;
+        res.centroid.position.z = 0;
+        res.centroid.orientation.x = 0;
+        res.centroid.orientation.y = 0;
+        res.centroid.orientation.z = 0;
+        res.centroid.orientation.w = 1;
+
+        res.success = false;
+        // Complete
+        as_.setSucceeded(res);
         return;
     }
 
@@ -57,8 +79,11 @@ void BinderDetector::DetectCentroidCB(const centroid_detector_msgs::DetectCentro
         return;
     }
 
+
     // Construct a pose
     centroid_detector_msgs::DetectCentroidResult res;
+
+
     res.centroid.position.x = centroid[0];
     res.centroid.position.y = centroid[1];
     res.centroid.position.z = centroid[2];
@@ -67,6 +92,7 @@ void BinderDetector::DetectCentroidCB(const centroid_detector_msgs::DetectCentro
     res.centroid.orientation.z = 0;
     res.centroid.orientation.w = 1;
 
+    res.success = true;
     // Complete
     as_.setSucceeded(res);
 }
@@ -82,7 +108,7 @@ bool BinderDetector::DetectCentroid(Eigen::Vector4f* result)
 {
     // Wait for a new point cloud
     //  Subscribe to pc topic
-    *pc_sub_ = nh_.subscribe("/head_camera/depth_registered/points", 1, &BinderDetector::PCCallback, this);
+    *pc_sub_ = nh_.subscribe("/head_camera/depth/points", 1, &BinderDetector::PCCallback, this);
     new_pc_ = false;
     while (ros::ok() && !as_.isPreemptRequested())
     {
@@ -141,6 +167,8 @@ bool BinderDetector::DetectCentroid(Eigen::Vector4f* result)
     pcl::CropBox<pcl::PointXYZ> crop_box(true);
     Eigen::Vector4f min_pt(min_pc_x_, min_pc_y_, min_pc_z_, 1);
     Eigen::Vector4f max_pt(max_pc_x_, max_pc_y_, max_pc_z_, 1);
+    std::cout << max_pc_z_ << std::endl;
+
     crop_box.setMin(min_pt);
     crop_box.setMax(max_pt);
     crop_box.setInputCloud(pcl_tfed_pc);

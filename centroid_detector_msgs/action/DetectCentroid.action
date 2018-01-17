@@ -1,9 +1,16 @@
 # Request
 # TODO(Kevin): Use an input pointcloud
+float32 min_x
+float32 max_x
+float32 min_y
+float32 max_y
+float32 min_z
+float32 max_z
 ---
 # Result
 # The pose of the most center centroid that was found
 geometry_msgs/Pose centroid
+bool success
 ---
 # Feedback
 std_msgs/String status
