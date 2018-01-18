@@ -5,6 +5,7 @@ project(centroid_detector)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
+  centroid_detector_msgs
   geometry_msgs
   pcl_conversions
   pcl_ros
