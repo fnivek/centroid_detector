@@ -18,6 +18,7 @@
 #include "pcl/kdtree/kdtree.h"
 #include "pcl/segmentation/extract_clusters.h"
 #include "sensor_msgs/PointCloud2.h"
+#include "visualization_msgs/Marker.h"
 #include "centroid_detector_msgs/DetectCentroidAction.h"
 
 class BinderDetector
@@ -56,8 +57,10 @@ class BinderDetector
     // Transformations
     tf::TransformListener* tf_listener_;
 
-    // Subscribers
+    // Subscribers and publishers
     ros::Subscriber* pc_sub_;
+    ros::Publisher* croped_pc_pub_;
+    ros::Publisher* vis_pub_;
 
     // Node handle
     ros::NodeHandle nh_;

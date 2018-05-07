@@ -4,6 +4,8 @@ BinderDetector::BinderDetector()
   : loop_rate_(NULL)
   , tf_listener_(NULL)
   , pc_sub_(NULL)
+  , croped_pc_pub_(NULL)
+  , vis_pub_(NULL)
   , new_pc_(false)
   , as_(nh_, "/centroid_detector", boost::bind(&BinderDetector::DetectCentroidCB, this, _1), false)
 {
@@ -23,6 +25,12 @@ BinderDetector::BinderDetector()
 
     // Setup tf
     tf_listener_ = new tf::TransformListener();
+
+    // Setup publisher
+    croped_pc_pub_ = new ros::Publisher();
+    *croped_pc_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("centroid_detector_croped_pc", 1);
+    vis_pub_ = new ros::Publisher();
+    *vis_pub_ = nh_.advertise<visualization_msgs::Marker>("centroid_detector_bbox", 1);
 
     // Setup service and subscribers
     pc_sub_ = new ros::Subscriber();
@@ -176,6 +184,37 @@ bool BinderDetector::DetectCentroid(Eigen::Vector4f* result)
     crop_box.filter(indices);
     pcl::PointCloud<pcl::PointXYZ>::Ptr croped_pc(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::copyPointCloud(*pcl_tfed_pc, indices, *croped_pc);
+
+    // Publish a representation of the crop box
+    visualization_msgs::Marker marker;
+    marker.header.frame_id = "base_link";
+    marker.header.stamp = ros::Time();
+    marker.ns = "centroid_detector";
+    marker.id = 0;
+    marker.type = visualization_msgs::Marker::CUBE;
+    marker.action = visualization_msgs::Marker::ADD;
+    marker.pose.position.x = (min_pc_x_ + max_pc_x_) / 2;
+    marker.pose.position.y = (min_pc_y_ + max_pc_y_) / 2;
+    marker.pose.position.z = (min_pc_z_ + max_pc_z_) / 2;
+    marker.pose.orientation.x = 0.0;
+    marker.pose.orientation.y = 0.0;
+    marker.pose.orientation.z = 0.0;
+    marker.pose.orientation.w = 1.0;
+    marker.scale.x = max_pc_x_ - min_pc_x_;
+    marker.scale.y = max_pc_y_ - min_pc_y_;
+    marker.scale.z = max_pc_z_ - min_pc_z_;
+    marker.color.a = 0.5; // Don't forget to set the alpha!
+    marker.color.r = 1.0;
+    marker.color.g = 1.0;
+    marker.color.b = 0.0;
+    vis_pub_->publish( marker );
+
+    // Publish the croped cloud for debug
+    pcl::PCLPointCloud2::Ptr temp2(new pcl::PCLPointCloud2);
+    pcl::toPCLPointCloud2(*croped_pc, *temp2);
+    sensor_msgs::PointCloud2 msg;
+    pcl_conversions::fromPCL(*temp2, msg);
+    croped_pc_pub_->publish(msg);
 
     // Make sure not preempted
     if (as_.isPreemptRequested())
