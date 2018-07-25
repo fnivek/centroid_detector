@@ -116,7 +116,7 @@ bool BinderDetector::DetectCentroid(Eigen::Vector4f* result)
 {
     // Wait for a new point cloud
     //  Subscribe to pc topic
-    *pc_sub_ = nh_.subscribe("/head_camera/depth/points", 1, &BinderDetector::PCCallback, this);
+    *pc_sub_ = nh_.subscribe("/head_camera/depth_downsample/points", 1, &BinderDetector::PCCallback, this);
     new_pc_ = false;
     while (ros::ok() && !as_.isPreemptRequested())
     {
