@@ -3,7 +3,7 @@
 BinderDetector::BinderDetector()
   : loop_rate_(NULL)
   , tf_listener_(NULL)
-  , depth_sub_(NULL)
+  , pc_sub_(NULL)
   , croped_pc_pub_(NULL)
   , vis_pub_(NULL)
   , new_pc_(false)
@@ -23,14 +23,6 @@ BinderDetector::BinderDetector()
     private_nh.param<float>("nearest_neighbor_radius", nearest_neighbor_radius_, 0.03);
     private_nh.param<float>("min_centroid_seperation", min_centroid_seperation_, 0.05);
 
-    // Grab cam_intrinsics_.ra params
-    cam_intrinsics_.camera_factor = 1000;
-    private_nh.param<float>("/head_cam_intrinsics_.ra/rgb/cam_intrinsics_.ra_info/K[0]", cam_intrinsics_.fx);
-    private_nh.param<float>("/head_cam_intrinsics_.ra/rgb/cam_intrinsics_.ra_info/K[2]", cam_intrinsics_.cx);
-    private_nh.param<float>("/head_cam_intrinsics_.ra/rgb/cam_intrinsics_.ra_info/K[4]", cam_intrinsics_.fy);
-    private_nh.param<float>("/head_cam_intrinsics_.ra/rgb/cam_intrinsics_.ra_info/K[5]", cam_intrinsics_.cy);
-
-
     // Setup tf
     tf_listener_ = new tf::TransformListener();
 
@@ -41,7 +33,7 @@ BinderDetector::BinderDetector()
     *vis_pub_ = nh_.advertise<visualization_msgs::Marker>("centroid_detector_bbox", 1);
 
     // Setup service and subscribers
-    depth_sub_ = new ros::Subscriber();
+    pc_sub_ = new ros::Subscriber();
     as_.start();
 }
 
@@ -51,8 +43,8 @@ BinderDetector::~BinderDetector()
         delete loop_rate_;
     if (tf_listener_)
         delete tf_listener_;
-    if (depth_sub_)
-        delete depth_sub_;
+    if (pc_sub_)
+        delete pc_sub_;
 }
 
 void BinderDetector::DetectCentroidCB(const centroid_detector_msgs::DetectCentroidGoal::ConstPtr& goal)
@@ -117,36 +109,18 @@ void BinderDetector::DetectCentroidCB(const centroid_detector_msgs::DetectCentro
     as_.setSucceeded(res);
 }
 
-void BinderDetector::DepthCallback(const sensor_msgs::Image::ConstPtr& msg)
+void BinderDetector::PCCallback(const sensor_msgs::PointCloud2::ConstPtr& msg)
 {
-    ROS_INFO("Got the depth image");
-    cv_bridge::CvImagePtr cv_ptr;
-    try
-    {
-        cv_ptr = cv_bridge::toCvCopy(msg, msg->encoding.c_str());
-    }
-    catch (cv_bridge::Exception& e)
-    {
-        ROS_ERROR("cv_bridge exception: %s", e.what());
-        return;
-    }
-
-    cv::Mat depth_image = cv_ptr->image;
-    pcl::PointCloud<pcl::PointXYZ>::Ptr temp = depth2PointCloud(depth_image);
-
-    // Convert back to sensor msg
-    pcl::toROSMsg(*temp, lattest_pc_);
-    lattest_pc_.header.frame_id = "/head_camera_rgb_optical_frame";
-    lattest_pc_.header.stamp = ros::Time();
-
+    ROS_INFO("Got a PC");
+    lattest_pc_ = *msg;
     new_pc_ = true;
 }
 
 bool BinderDetector::DetectCentroid(Eigen::Vector4f* result)
 {
     // Wait for a new point cloud
-    //  Subscribe to depth image topic
-    *depth_sub_ = nh_.subscribe("/head_camera/depth_registered/image_raw", 1, &BinderDetector::DepthCallback, this);
+    //  Subscribe to pc topic
+    *pc_sub_ = nh_.subscribe("/head_camera/depth/points", 1, &BinderDetector::PCCallback, this);
     new_pc_ = false;
     while (ros::ok() && !as_.isPreemptRequested())
     {
@@ -159,8 +133,7 @@ bool BinderDetector::DetectCentroid(Eigen::Vector4f* result)
         loop_rate_->sleep();
     }
     // Unsubscribe from pc topic
-    // pc_sub_->shutdown();
-    depth_sub_->shutdown();
+    pc_sub_->shutdown();
 
     // Make sure not preempted
     if (as_.isPreemptRequested())
@@ -170,7 +143,7 @@ bool BinderDetector::DetectCentroid(Eigen::Vector4f* result)
     }
 
     // 2D crop
-    // ExtractPCFromBB(lattest_pc_);
+    ExtractPCFromBB(lattest_pc_);
 
     // Transform pc to base_link
     sensor_msgs::PointCloud2 tfed_pc;
@@ -413,34 +386,8 @@ void BinderDetector::ExtractPCFromBB(sensor_msgs::PointCloud2& pc)
 
     // Convert back to sensor msg
     pcl::toROSMsg(*cropped, pc);
-    pc.header.frame_id = "/head_cam_intrinsics_.ra_rgb_optical_frame";
+    pc.header.frame_id = "/head_camera_rgb_optical_frame";
     pc.header.stamp = ros::Time();
-}
-
-pcl::PointCloud<pcl::PointXYZ>::Ptr BinderDetector::depth2PointCloud(cv::Mat depth)
-{
-    int rows = max_2d_y_ - min_2d_y_ + 1;
-    int cols = max_2d_x_ - min_2d_x_ + 1;
-    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud ( new pcl::PointCloud<pcl::PointXYZ>(cols, rows) );
-
-    for(int i=min_2d_y_; i<=max_2d_y_; i++)
-    {
-        for(int j=min_2d_x_; j<=max_2d_x_; j++)
-        {
-            float d = depth.at<int16_t>(i,j);
-
-            // transform the homogeneous point
-            pcl::PointXYZ p;
-
-            p.z = double(d) / cam_intrinsics_.camera_factor;
-            p.x = (j - cam_intrinsics_.cx) * p.z / cam_intrinsics_.fx;
-            p.y = (i - cam_intrinsics_.cy) * p.z / cam_intrinsics_.fy;
-
-            cloud->points[cols*i + j] = p;
-        }
-    }
-
-   return cloud;
 }
 
 // 20 Hz
