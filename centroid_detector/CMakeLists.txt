@@ -11,6 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
   pcl_ros
   roscpp
   tf
+  cv_bridge
 )
 
 ###################################
@@ -23,6 +24,7 @@ catkin_package(
     pcl_ros
     roscpp
     tf
+    cv_bridge
 )
 
 ###########

@@ -20,6 +20,16 @@
 #include "sensor_msgs/PointCloud2.h"
 #include "visualization_msgs/Marker.h"
 #include "centroid_detector_msgs/DetectCentroidAction.h"
+#include "cv_bridge/cv_bridge.h"
+
+struct CameraIntrinsics
+{
+  float camera_factor;
+  int cx;
+  int cy;
+  int fx;
+  int fy;
+};
 
 class BinderDetector
 {
@@ -32,10 +42,11 @@ class BinderDetector
 
   private:
     // Private funcs
-    void PCCallback(const sensor_msgs::PointCloud2::ConstPtr& msg);
+    void DepthCallback(const sensor_msgs::Image::ConstPtr& msg);
     void DetectCentroidCB(const centroid_detector_msgs::DetectCentroidGoal::ConstPtr& goal);
     bool DetectCentroid(Eigen::Vector4f* result);
     void ExtractPCFromBB(sensor_msgs::PointCloud2& pc);
+    pcl::PointCloud<pcl::PointXYZ>::Ptr depth2PointCloud(cv::Mat depth);
 
   private:
     // Private vars
@@ -63,7 +74,7 @@ class BinderDetector
     tf::TransformListener* tf_listener_;
 
     // Subscribers and publishers
-    ros::Subscriber* pc_sub_;
+    ros::Subscriber* depth_sub_;
     ros::Publisher* croped_pc_pub_;
     ros::Publisher* vis_pub_;
 
@@ -81,6 +92,9 @@ class BinderDetector
 
     // Feedback
     centroid_detector_msgs::DetectCentroidFeedback feedback_;
+
+    // Camera intrinsics
+    CameraIntrinsics cam_intrinsics_;
 
   private:
     // Private constants
