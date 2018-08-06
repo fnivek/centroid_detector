@@ -35,6 +35,7 @@ class BinderDetector
     void PCCallback(const sensor_msgs::PointCloud2::ConstPtr& msg);
     void DetectCentroidCB(const centroid_detector_msgs::DetectCentroidGoal::ConstPtr& goal);
     bool DetectCentroid(Eigen::Vector4f* result);
+    void ExtractPCFromBB(sensor_msgs::PointCloud2& pc);
 
   private:
     // Private vars
@@ -47,6 +48,10 @@ class BinderDetector
     float max_pc_y_;
     float min_pc_z_;
     float max_pc_z_;
+    float min_2d_x_;
+    float max_2d_x_;
+    float min_2d_y_;
+    float max_2d_y_;
 
     // Parameters for grouping
     float nearest_neighbor_radius_;

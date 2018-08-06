@@ -56,6 +56,10 @@ void BinderDetector::DetectCentroidCB(const centroid_detector_msgs::DetectCentro
     private_nh.param<float>("max_pc_y", max_pc_y_, goal->max_y);
     private_nh.param<float>("min_pc_z", min_pc_z_, goal->min_z);
     private_nh.param<float>("max_pc_z", max_pc_z_, goal->max_z);
+    min_2d_x_ = goal->min_2d_x;
+    max_2d_x_ = goal->max_2d_x;
+    min_2d_y_ = goal->min_2d_y;
+    max_2d_y_ = goal->max_2d_y;
 
     ROS_INFO("Centroid detector activated");
     // Try to find a binder
@@ -116,7 +120,7 @@ bool BinderDetector::DetectCentroid(Eigen::Vector4f* result)
 {
     // Wait for a new point cloud
     //  Subscribe to pc topic
-    *pc_sub_ = nh_.subscribe("/head_camera/depth_downsample/points", 1, &BinderDetector::PCCallback, this);
+    *pc_sub_ = nh_.subscribe("/head_camera/depth/points", 1, &BinderDetector::PCCallback, this);
     new_pc_ = false;
     while (ros::ok() && !as_.isPreemptRequested())
     {
@@ -138,6 +142,9 @@ bool BinderDetector::DetectCentroid(Eigen::Vector4f* result)
         return false;
     }
 
+    // 2D crop
+    ExtractPCFromBB(lattest_pc_);
+
     // Transform pc to base_link
     sensor_msgs::PointCloud2 tfed_pc;
     try
@@ -145,7 +152,7 @@ bool BinderDetector::DetectCentroid(Eigen::Vector4f* result)
         feedback_.status.data = "Waiting for tf";
         as_.publishFeedback(feedback_);
         ROS_INFO("%s", feedback_.status.data.c_str());
-        tf_listener_->waitForTransform("/base_link", lattest_pc_.header.frame_id, ros::Time(0), ros::Duration(10.0));
+        tf_listener_->waitForTransform("/base_link", lattest_pc_.header.frame_id, ros::Time(), ros::Duration(10.0));
         pcl_ros::transformPointCloud("/base_link", lattest_pc_, tfed_pc, *tf_listener_);
     }
     catch (tf::TransformException ex)
@@ -214,6 +221,8 @@ bool BinderDetector::DetectCentroid(Eigen::Vector4f* result)
     pcl::toPCLPointCloud2(*croped_pc, *temp2);
     sensor_msgs::PointCloud2 msg;
     pcl_conversions::fromPCL(*temp2, msg);
+    msg.header.frame_id = "base_link";
+    msg.header.stamp = ros::Time();
     croped_pc_pub_->publish(msg);
 
     // Make sure not preempted
@@ -347,6 +356,38 @@ void BinderDetector::Run()
         // Maintain loop rate
         loop_rate_->sleep();
     }
+}
+
+void BinderDetector::ExtractPCFromBB(sensor_msgs::PointCloud2& pc)
+{
+    // Make sure there is a 2d box
+    if (!(max_2d_x_ || max_2d_y_ || min_2d_x_ || min_2d_y_)) {
+        return;
+    }
+
+    // Convert to PCL
+    pcl::PCLPointCloud2::Ptr temp(new pcl::PCLPointCloud2);
+    pcl_conversions::toPCL(pc, *temp);
+    pcl::PointCloud<pcl::PointXYZ>::Ptr pcl_pc(new pcl::PointCloud<pcl::PointXYZ>);
+    pcl::fromPCLPointCloud2(*temp, *pcl_pc);
+
+    // Fill in indicies
+    std::vector<int> indices;
+    for (int row = min_2d_y_; row <= max_2d_y_; ++row) {
+        int row_offset = row * pcl_pc->width;
+        for (int col = min_2d_x_; col <= max_2d_x_; ++col) {
+            indices.push_back(row_offset + col);
+        }
+    }
+
+    // Copy pc
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cropped(new pcl::PointCloud<pcl::PointXYZ>);
+    pcl::copyPointCloud(*pcl_pc, indices, *cropped);
+
+    // Convert back to sensor msg
+    pcl::toROSMsg(*cropped, pc);
+    pc.header.frame_id = "/head_camera_rgb_optical_frame";
+    pc.header.stamp = ros::Time();
 }
 
 // 20 Hz
