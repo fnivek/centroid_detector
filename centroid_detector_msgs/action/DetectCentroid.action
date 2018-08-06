@@ -6,6 +6,10 @@ float32 min_y
 float32 max_y
 float32 min_z
 float32 max_z
+float32 min_2d_x
+float32 max_2d_x
+float32 min_2d_y
+float32 max_2d_y
 ---
 # Result
 # The pose of the most center centroid that was found
