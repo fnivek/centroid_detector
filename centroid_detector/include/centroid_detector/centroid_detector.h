@@ -78,6 +78,7 @@ class BinderDetector
     // Track the lattest pc
     sensor_msgs::PointCloud2 lattest_pc_;
     bool new_pc_;
+    sensor_msgs::PointCloud2 cropped_pc_;
 
     // Feedback
     centroid_detector_msgs::DetectCentroidFeedback feedback_;

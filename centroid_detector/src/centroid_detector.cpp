@@ -104,6 +104,8 @@ void BinderDetector::DetectCentroidCB(const centroid_detector_msgs::DetectCentro
     res.centroid.orientation.z = 0;
     res.centroid.orientation.w = 1;
 
+    res.cropped_pc = cropped_pc_;
+
     res.success = true;
     // Complete
     as_.setSucceeded(res);
@@ -224,6 +226,8 @@ bool BinderDetector::DetectCentroid(Eigen::Vector4f* result)
     msg.header.frame_id = "base_link";
     msg.header.stamp = ros::Time();
     croped_pc_pub_->publish(msg);
+
+    cropped_pc_ = msg;
 
     // Make sure not preempted
     if (as_.isPreemptRequested())

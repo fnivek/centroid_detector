@@ -14,6 +14,7 @@ float32 max_2d_y
 # Result
 # The pose of the most center centroid that was found
 geometry_msgs/Pose centroid
+sensor_msgs/PointCloud2 cropped_pc
 bool success
 ---
 # Feedback
