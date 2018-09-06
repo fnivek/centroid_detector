@@ -397,7 +397,7 @@ void BinderDetector::ExtractPCFromBB(sensor_msgs::PointCloud2& pc)
 // 20 Hz
 const float BinderDetector::kLoopRate = 20;
 // Minimum number in nn search
-const unsigned int BinderDetector::kMinClusterSize = 50;
+const unsigned int BinderDetector::kMinClusterSize = 500;
 
 int main(int argc, char** argv)
 {
