@@ -124,13 +124,16 @@ bool BinderDetector::DetectCentroid(Eigen::Vector4f* result)
     //  Subscribe to pc topic
     *pc_sub_ = nh_.subscribe("/head_camera/depth/points", 1, &BinderDetector::PCCallback, this);
     new_pc_ = false;
+    int i = 0;
+    int about_3_secs = 3 * kLoopRate;
     while (ros::ok() && !as_.isPreemptRequested())
     {
         feedback_.status.data = "Waiting for point cloud";
         as_.publishFeedback(feedback_);
-        ROS_INFO("%s", feedback_.status.data.c_str());
         if (new_pc_)
             break;
+        if (!(++i % about_3_secs))
+            ROS_INFO("%s", feedback_.status.data.c_str());
         ros::spinOnce();
         loop_rate_->sleep();
     }
@@ -264,7 +267,7 @@ bool BinderDetector::DetectCentroid(Eigen::Vector4f* result)
 
     // Get centroids
     std::vector<Eigen::Vector4f> centroids;
-    int i = 0;
+    i = 0;
     for (std::vector<pcl::PointIndices>::iterator it = cluster_indicies.begin(); it < cluster_indicies.end(); ++it)
     {
         // Make sure not preempted
