@@ -19,6 +19,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
   INCLUDE_DIRS include
   CATKIN_DEPENDS
+    centroid_detector_msgs
     geometry_msgs
     pcl_ros
     roscpp
